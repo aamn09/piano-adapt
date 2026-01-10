@@ -1,0 +1,23 @@
+# Dépendances Node.js 
+node_modules/
+dist/
+build/
+.DS_Store
+
+# Environnement Python & Cache
+backend/venv/
+backend/__pycache__/
+*.pyc
+
+# Base de données et fichiers locaux
+*.db
+*.sqlite3
+
+# Dossier d'upload et scores
+backend/uploads/
+backend/scores_output
+
+
+# Logs
+*.log
+npm-debug.log*

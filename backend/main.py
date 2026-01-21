@@ -113,7 +113,42 @@ class Score(Base):
 Base.metadata.create_all(bind=engine)
 
 
-# --- 3. SCHÉMAS PYDANTIC (Validation des données reçues) ---
+# --- 3. CRÉATION DU COMPTE PAR DÉFAUT (NOUVEAU) ---
+
+@app.on_event("startup")
+def create_default_user():
+    """
+    Vérifie au démarrage si le compte de démonstration existe.
+    Sinon, le crée automatiquement.
+    """
+    db = SessionLocal()
+    try:
+        # On vérifie si le compte démo existe
+        existing_user = db.query(User).filter(User.email == "demo@piano.com").first()
+        
+        if not existing_user:
+            print("Création du compte par défaut : demo@piano.com")
+            
+            # On utilise pwd_context défini plus haut pour hasher le mot de passe
+            hashed_pw = pwd_context.hash("piano123") 
+            
+            demo_user = User(
+                email="demo@piano.com",
+                hashed_password=hashed_pw,
+                first_name="Demo",
+                last_name="Pianist"
+            )
+            
+            db.add(demo_user)
+            db.commit()
+            print("Compte 'demo@piano.com' (mdp: piano123) créé avec succès !")
+        else:
+            print("Le compte démo existe déjà.")
+    finally:
+        db.close()
+
+
+# --- 4. SCHÉMAS PYDANTIC (Validation des données reçues) ---
 
 class UserCreate(BaseModel):
     email: str
@@ -131,7 +166,7 @@ class ProfileCreate(BaseModel):
     color: Optional[str] = "from-blue-500 to-indigo-500"
 
 
-# --- 4. UTILITAIRES ET SÉCURITÉ ---
+# --- 5. UTILITAIRES ET SÉCURITÉ ---
 
 def get_db():
     """Ouvre une connexion BDD pour une requête et la ferme après."""
@@ -179,7 +214,7 @@ def wsl_path_to_windows(linux_path: str) -> str:
     return result.stdout.strip()
 
 
-# --- 5. ROUTES API (Auth & Profils) ---
+# --- 6. ROUTES API (Auth & Profils) ---
 
 @app.post("/api/auth/register")
 def register(user_data: UserCreate, db: Session = Depends(get_db)):
@@ -223,7 +258,7 @@ def create_profile(profile: ProfileCreate, user: User = Depends(get_current_user
     return {"success": True, "profile": {"id": new_profile.id, "name": new_profile.name}}
 
 
-# --- 6. UPLOAD & TRAITEMENT (Le cœur du système) ---
+# --- 7. UPLOAD & TRAITEMENT (Le cœur du système) ---
 
 @app.post("/api/scores/upload-pdf")
 def upload_score(

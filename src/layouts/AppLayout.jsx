@@ -27,7 +27,6 @@ export default function AppLayout({ children }) {
         />
       </div>
 
-      {/* --- CONTENU --- */}
       {/* z-10 : Passe au-dessus du fond animé pour être lisible et cliquable */}
       <div className="relative z-10 w-full h-full flex flex-col">
         {children}

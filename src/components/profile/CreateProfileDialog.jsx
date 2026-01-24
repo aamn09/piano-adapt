@@ -11,7 +11,7 @@ import { Button } from "../ui/Button";
 import { Input } from "../ui/Input"; 
 import { createProfile } from '../../api/backendClient';
 
-// --- CONFIGURATION DES CHOIX VISUELS ---
+
 
 const ICONS = ["🎹", "🎻", "🎸", "🎷", "🎺", "🥁", "🎤", "🎼", "🎧", "🎵"];
 
@@ -24,7 +24,7 @@ const COLORS = [
 ];
 
 /**
- * @param {boolean} open - Visibilité du dialogue.
+ * @param {boolean} open 
  * @param {Function} onClose - Fonction de fermeture.
  */
 export default function CreateProfileDialog({ open, onClose }) {
@@ -38,7 +38,6 @@ export default function CreateProfileDialog({ open, onClose }) {
   const mutation = useMutation({
     mutationFn: () => createProfile(name, selectedIcon, selectedColor.value),
     onSuccess: () => {
-      // Invalide le cache 'profiles' pour forcer le rechargement de la liste
       queryClient.invalidateQueries(['profiles']);
       handleClose();
     },
@@ -64,13 +63,13 @@ export default function CreateProfileDialog({ open, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Overlay sombre */}
+      
       <div 
         className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
         onClick={handleClose}
       />
 
-      {/* Contenu du modal */}
+      
       <div className="relative w-full max-w-md bg-[#1e293b] border border-white/10 rounded-2xl shadow-2xl p-6 overflow-hidden animate-in fade-in zoom-in duration-200">
         
         {/* En-tête */}
@@ -83,14 +82,14 @@ export default function CreateProfileDialog({ open, onClose }) {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           
-          {/* 1. Prévisualisation (Avatar rond) */}
+          
           <div className="flex justify-center mb-4">
              <div className={`w-20 h-20 rounded-full bg-gradient-to-br ${selectedColor.value} flex items-center justify-center text-4xl shadow-lg ring-4 ring-slate-800 transition-all duration-300`}>
                 {selectedIcon}
              </div>
           </div>
 
-          {/* 2. Champ Nom */}
+          
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Nom du musicien</label>
             <Input 
@@ -102,7 +101,7 @@ export default function CreateProfileDialog({ open, onClose }) {
             />
           </div>
 
-          {/* 3. Sélecteur d'Icône */}
+         
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Choisir un avatar</label>
             <div className="flex flex-wrap gap-2 justify-center bg-slate-900/50 p-3 rounded-xl border border-slate-800">
@@ -123,7 +122,7 @@ export default function CreateProfileDialog({ open, onClose }) {
             </div>
           </div>
 
-          {/* 4. Sélecteur de Couleur */}
+          
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-3">Couleur du thème</label>
             <div className="flex gap-3 justify-center">
@@ -143,7 +142,7 @@ export default function CreateProfileDialog({ open, onClose }) {
             </div>
           </div>
 
-          {/* Boutons d'action */}
+          
           <div className="flex gap-3 pt-4">
             <Button 
               type="button" 

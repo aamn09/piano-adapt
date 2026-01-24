@@ -18,7 +18,6 @@ export default function GameStats({ precision, correct, errors, progress, totalN
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-5xl mb-6">
       
-      {/* CARTE 1 : PRÉCISION */}
       <div className="bg-[#1e293b] p-4 rounded-xl border-l-4 border-blue-500 shadow-lg">
         <div className="flex items-center gap-2 text-blue-400 mb-1">
           <Target size={18} />
@@ -27,7 +26,7 @@ export default function GameStats({ precision, correct, errors, progress, totalN
         <p className="text-3xl font-bold text-white">{precision}%</p>
       </div>
 
-      {/* CARTE 2 : NOTES CORRECTES */}
+      
       <div className="bg-[#1e293b] p-4 rounded-xl border-l-4 border-emerald-500 shadow-lg">
         <div className="flex items-center gap-2 text-emerald-400 mb-1">
           <CheckCircle size={18} />
@@ -36,7 +35,7 @@ export default function GameStats({ precision, correct, errors, progress, totalN
         <p className="text-3xl font-bold text-white">{correct}</p>
       </div>
 
-      {/* CARTE 3 : ERREURS */}
+      
       <div className="bg-[#1e293b] p-4 rounded-xl border-l-4 border-red-500 shadow-lg">
         <div className="flex items-center gap-2 text-red-400 mb-1">
           <XCircle size={18} />
@@ -45,7 +44,7 @@ export default function GameStats({ precision, correct, errors, progress, totalN
         <p className="text-3xl font-bold text-white">{errors}</p>
       </div>
 
-      {/* CARTE 4 : PROGRESSION */}
+      
       <div className="bg-[#1e293b] p-4 rounded-xl border-l-4 border-purple-500 shadow-lg relative overflow-hidden">
         <div className="flex items-center gap-2 text-purple-400 mb-1 relative z-10">
           <TrendingUp size={18} />
@@ -55,7 +54,7 @@ export default function GameStats({ precision, correct, errors, progress, totalN
             {progress}<span className="text-xl text-slate-400">/{totalNotes}</span>
         </p>
         
-        {/*Barre de progression en arrière-plan */}
+        
         <div 
             className="absolute bottom-0 left-0 h-1 bg-purple-500 transition-all duration-500"
             style={{ width: `${(progress / (totalNotes || 1)) * 100}%` }}

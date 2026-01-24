@@ -8,7 +8,7 @@ import { create } from 'zustand';
 
 export const useAuthStore = create((set) => ({
   
-  // --- ÉTAT INITIAL ---
+  
   // On essaie de lire le localStorage au démarrage 
   user: JSON.parse(localStorage.getItem('user')) || null,
   token: localStorage.getItem('authToken') || null,
@@ -26,11 +26,11 @@ export const useAuthStore = create((set) => ({
    * @param {Array} profiles - Liste des profils associés.
    */
   login: (user, token, profiles = []) => {
-    // 1. Sauvegarde disque 
+    // Sauvegarde disque 
     localStorage.setItem('authToken', token);
     localStorage.setItem('user', JSON.stringify(user));
     
-    // 2. Mise à jour mémoire (React)
+    //  Mise à jour mémoire (React)
     set({ 
       user, 
       token, 

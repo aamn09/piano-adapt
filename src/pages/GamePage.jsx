@@ -1,69 +1,53 @@
 /**
- * @file GamePage.jsx
- * @description CŒUR DU JEU.
- * 1. Charge et analyse le fichier MusicXML (via OSMD).
- * 2. Transforme les données XML en objets "Note" simplifiés.
- * 3. Affiche une portée SVG interactive.
- * 4. Gère la boucle de jeu (Input Clavier -> Validation -> Scroll).
+ * GamePage.jsx
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
-import { ArrowLeft, Settings, RotateCcw } from 'lucide-react';
-import { getScoreMxl } from '../api/backendClient';
+import { ArrowLeft, Settings, Bug, Play, Pause } from 'lucide-react';
+import { getScoreMxl, getScoreJson } from '../api/backendClient';
 
-// Composants
 import GameStats from '../components/game/GameStats';
 import VirtualKeyboard from '../components/game/VirtualKeyboard';
 import GameSettingsDialog from '../components/game/GameSettingsDialog';
+import DebugPanel from '../components/game/DebugPanel';
 
-// --- CONFIGURATION CONSTANTE ---
-const NOTE_SPACING = 150;  // Espace horizontal entre deux notes (en px)
-const STAFF_Y_START = 100; // Marge haute de la portée
-const LINE_GAP = 20;       // Espace vertical entre les lignes de la portée
+const NOTE_SPACING = 160; 
+const STAFF_Y_START = 110; 
+const LINE_GAP = 22;       
+const CURSOR_LEFT_PERCENT = 0.2; 
 
-// Mapping : Touche Clavier Ordi -> Note de Musique
-const KEY_NOTE_MAP = {
-  'A': 'C', 'S': 'D', 'D': 'E', 'F': 'F',
-  'G': 'G', 'H': 'A', 'J': 'B', 'K': 'C',
-};
-
-const NOTE_NAMES_FR = {
-  'C': 'Do', 'D': 'Ré', 'E': 'Mi', 'F': 'Fa', 'G': 'Sol', 'A': 'La', 'B': 'Si'
-};
-
-// Dictionnaire pour calculer la hauteur (Y) des notes
+const KEY_NOTE_MAP = { 'A': 'C', 'S': 'D', 'D': 'E', 'F': 'F', 'G': 'G', 'H': 'A', 'J': 'B', 'K': 'C' };
+const NOTE_NAMES_FR = { 'C': 'Do', 'D': 'Ré', 'E': 'Mi', 'F': 'Fa', 'G': 'Sol', 'A': 'La', 'B': 'Si' };
 const PITCH_ORDER = { 'C': 0, 'D': 1, 'E': 2, 'F': 3, 'G': 4, 'A': 5, 'B': 6 };
-const ENUM_TO_STEP = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
 
 export default function GamePage() {
   const { scoreId } = useParams();
   const navigate = useNavigate();
+  const hiddenContainer = useRef(null); 
+  const scrollContainer = useRef(null); 
+  const animationFrameRef = useRef(null);
+  const lastTimeRef = useRef(0);
   
-  // Refs pour manipuler le DOM directement (nécessaire pour OSMD et le Scroll)
-  const hiddenContainer = useRef(null); // Sert juste à parser le XML (invisible)
-  const scrollContainer = useRef(null); // La div qui scrolle horizontalement
-  
-  // --- ÉTAT DU JEU ---
-  const [activeKey, setActiveKey] = useState(null); // Touche pressée
-  const [showSettings, setShowSettings] = useState(false);
-  const [gameStatus, setGameStatus] = useState("loading"); // loading | ready | finished
-  
-  const [virtualNotes, setVirtualNotes] = useState([]); // Liste des notes à jouer
-  const [currentIndex, setCurrentIndex] = useState(0);  // Note active
-
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [gameStatus, setGameStatus] = useState("loading"); 
+  const [virtualNotes, setVirtualNotes] = useState([]); 
+  const [currentIndex, setCurrentIndex] = useState(0);  
+  const [activeKey, setActiveKey] = useState(null); 
   const [stats, setStats] = useState({ correct: 0, errors: 0, totalNotes: 0, progress: 0 });
-  
-  // Initialisation complète des settings pour éviter les bugs de sliders
-  const [settings, setSettings] = useState({ 
-    showNoteNames: true,
-    bpm: 60,
-    volume: 50 
+  const [showSettings, setShowSettings] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
+
+  const [aiState, setAiState] = useState({ 
+    reading_fluency: 1.0, 
+    looking_at_keyboard: false,
+    is_distracted: false
   });
 
-  // Largeur d'écran (Responsive) : Utile pour centrer la note active
+  const aiStateRef = useRef(aiState);
+  const [settings, setSettings] = useState({ showNoteNames: true, bpm: 60, volume: 50 });
   const [screenWidth, setScreenWidth] = useState(window.innerWidth);
 
   useEffect(() => {
@@ -72,325 +56,194 @@ export default function GamePage() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Récupération du fichier XML depuis le Backend
-  const { data: xmlContent } = useQuery({
-    queryKey: ['scoreXml', scoreId],
-    queryFn: () => getScoreMxl(scoreId),
-    refetchOnWindowFocus: false,
-  });
+  useEffect(() => { aiStateRef.current = aiState; }, [aiState]);
 
-  /**
-   * --- SCROLL ENGINE ---
-   * bouge la div horizontale pour amener la note 'index' au centre.
-   */
-  const scrollToNote = useCallback((index) => {
-    if (scrollContainer.current) {
-      // On déplace le scroll de "index * 150px".
-      // Comme la 1ère note est décalée visuellement (startOffset), ce scroll l'amène pile au centre.
-      const notePosition = index * NOTE_SPACING;
-      
-      scrollContainer.current.scrollTo({
-        left: notePosition, 
-        behavior: 'smooth'
-      });
-    }
+  const { data: xmlContent } = useQuery({ queryKey: ['scoreXml', scoreId], queryFn: () => getScoreMxl(scoreId), refetchOnWindowFocus: false });
+  const { data: notesJson } = useQuery({ queryKey: ['scoreJson', scoreId], queryFn: () => getScoreJson(scoreId), refetchOnWindowFocus: false });
+
+  useEffect(() => {
+    if (!xmlContent || !hiddenContainer.current) return;
+    hiddenContainer.current.innerHTML = '';
+    const osmd = new OpenSheetMusicDisplay(hiddenContainer.current, { backend: "svg", autoResize: false, drawingParameters: "compact" });
+    osmd.load(xmlContent).then(() => { try { osmd.render(); } catch(e) {} });
+  }, [xmlContent]);
+
+  useEffect(() => {
+      if (notesJson && notesJson.length > 0) {
+          setVirtualNotes(notesJson.map(n => ({ ...n, status: 'waiting' })));
+          setStats(s => ({ ...s, totalNotes: notesJson.length }));
+          setGameStatus("ready");
+          if(notesJson[0].bpm_ref) setSettings(s => ({...s, bpm: notesJson[0].bpm_ref}));
+      }
+  }, [notesJson]);
+
+  // Tom 
+  // C'est ici que les données de l'oculomètre modifient le comportement du jeu.
+  useEffect(() => {
+    // Récupération des données traitées par le script Python (via FastAPI)
+    const interval = setInterval(() => {
+      fetch('http://localhost:8000/api/get-eye-data')
+        .then(res => res.json())
+        .then(data => {
+            // 'fluency' est le multiplicateur de vitesse du BPM (1.0 = 100% de la vitesse)
+            let fluency = 1.0;
+            //Si l'utilisateur regarde ses mains (clavier), on ralentit drastiquement (20% de la vitesse)
+            //on peut changer biensûr 
+            if (data.looking_at_key) fluency = 0.2;
+            // Note pour Tom : Tu peux ajouter d'autres conditions ici.
+            // Exemple : if (data.is_distracted) fluency = 0.0; // Pour mettre le jeu en pause
+
+            // Mise à jour de l'état global pour que l'animation React réagisse
+            setAiState(prev => ({ ...prev, ...data, reading_fluency: fluency }));
+        }).catch(() => {
+          // Si le serveur est éteint, on ne bloque pas le jeu
+          console.warn("L'API Eye-Tracking ne répond pas.");
+        });
+    }, 150);// Fréquence de rafraîchissement toutes les 150ms
+    return () => clearInterval(interval);
   }, []);
 
-  /**
-   * Vérifie si la touche appuyée correspond à la note attendue.
-   */
+  const animate = useCallback((time) => {
+    if (lastTimeRef.current !== 0 && isPlaying) {
+        const deltaTime = (time - lastTimeRef.current) / 1000;
+        const effectiveBpm = settings.bpm * Math.max(0.1, aiStateRef.current.reading_fluency);
+        const pps = (effectiveBpm / 60) * NOTE_SPACING;
+        if (scrollContainer.current) {
+            scrollContainer.current.scrollLeft += (pps * deltaTime);
+        }
+    }
+    lastTimeRef.current = time;
+    animationFrameRef.current = requestAnimationFrame(animate);
+  }, [settings.bpm, isPlaying]);
+
+  useEffect(() => {
+    animationFrameRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationFrameRef.current);
+  }, [animate]);
+
   const handleNoteCheck = useCallback((pressedKey) => {
     if (gameStatus !== "ready" || currentIndex >= virtualNotes.length) return;
-
     const currentNote = virtualNotes[currentIndex];
-    const playedStep = KEY_NOTE_MAP[pressedKey]; 
+    const isCorrect = KEY_NOTE_MAP[pressedKey] === currentNote.step;
 
-    setVirtualNotes(prevNotes => {
-        const newNotes = [...prevNotes];
-        const noteToUpdate = newNotes[currentIndex];
-        
-        if (playedStep === currentNote.step) {
-            noteToUpdate.status = 'correct';
-            setStats(s => ({ ...s, correct: s.correct + 1, progress: currentIndex + 1 }));
-        } else {
-            noteToUpdate.status = 'wrong';
-            setStats(s => ({ ...s, errors: s.errors + 1 }));
-        }
+    setVirtualNotes(prev => {
+        const newNotes = [...prev];
+        newNotes[currentIndex] = { ...newNotes[currentIndex], status: isCorrect ? 'correct' : 'wrong' };
         return newNotes;
     });
 
-    // Passage à la note suivante
     const nextIndex = currentIndex + 1;
     setCurrentIndex(nextIndex);
-    scrollToNote(nextIndex); // Déclenche le mouvement
+  
+    if (scrollContainer.current) {
+        scrollContainer.current.scrollLeft = currentIndex * NOTE_SPACING;
+    }
 
-    if (nextIndex >= virtualNotes.length) setGameStatus("finished");
-    
-  }, [currentIndex, virtualNotes, gameStatus, scrollToNote]);
+    setStats(prev => ({ ...prev, correct: prev.correct + (isCorrect ? 1 : 0), errors: prev.errors + (isCorrect ? 0 : 1), progress: nextIndex }));
+  }, [currentIndex, virtualNotes, gameStatus]);
 
-  /**
-   * --- PARSER MUSICXML  ---
-   * Utilise OpenSheetMusicDisplay pour lire le fichier, mais on n'affiche pas son rendu.
-   * On extrait juste les données brutes (Hauteur, Durée, Timestamp) pour construire notre propre SVG.
-   */
-  useEffect(() => {
-    if (!xmlContent || !hiddenContainer.current) return;
-
-    hiddenContainer.current.innerHTML = '';
-    const osmd = new OpenSheetMusicDisplay(hiddenContainer.current, {
-      backend: "svg", autoResize: false, darkMode: false
-    });
-
-    osmd.load(xmlContent).then(() => {
-      try { osmd.render(); } catch(e) {}
-      
-      const sheet = osmd.Sheet;
-      const notesByTimestamp = new Map();
-
-      // Parcours de la hiérarchie MusicXML : Mesure -> Staff -> Voice -> Note
-      if (sheet && sheet.SourceMeasures) {
-        for (const measure of sheet.SourceMeasures) {
-            if (!measure.VerticalSourceStaffEntryContainers) continue;
-            for (const container of measure.VerticalSourceStaffEntryContainers) {
-                //  On utilise le timestamp réel pour trier les notes chronologiquement
-                const timestamp = container.AbsoluteTimestamp ? container.AbsoluteTimestamp.RealValue : Math.random(); 
-                if (!container.StaffEntries) continue;
-                for (const entry of container.StaffEntries) {
-                    if (!entry || !entry.VoiceEntries) continue;
-                    for (const voiceEntry of entry.VoiceEntries) {
-                        if (!voiceEntry.Notes) continue;
-                        for (const note of voiceEntry.Notes) {
-                            // On ignore les silences (Rest)
-                            if (note.isRest && (typeof note.isRest === 'function' ? note.isRest() : note.isRest)) continue;
-                            
-                            // --- EXTRACTION DE LA HAUTEUR (PITCH) ---
-                            let step = null;
-                            let octave = 4;
-                            let midiVal = 0;
-                            const p = note.Pitch || note.pitch;
-
-                            // Cas 1 : Note définie par demi-tons (MIDI)
-                            if (note.halfTone !== undefined) {
-                                midiVal = note.halfTone + 12; 
-                                const notesScale = ['C', 'C', 'D', 'D', 'E', 'F', 'F', 'G', 'G', 'A', 'A', 'B'];
-                                step = notesScale[midiVal % 12];
-                                octave = Math.floor(midiVal / 12) - 1;
-                            } 
-                            // Cas 2 : Note définie par Step/Octave (XML standard)
-                            else if (p) {
-                                try {
-                                    let s = p.step || p.Step;
-                                    if (typeof s === 'number') step = ENUM_TO_STEP[s];
-                                    else if (s) step = s.toString().replace("Step", "").trim().charAt(0).toUpperCase();
-                                    octave = p.octave || p.Octave || 4;
-                                    midiVal = (octave * 12) + PITCH_ORDER[step];
-                                } catch(e) {}
-                            }
-
-                            // Validation et Ajout
-                            if (step && "CDEFGAB".includes(step)) {
-                                if (octave < 3) continue; // On ignore les notes trop graves pour le jeu
-                                // Si plusieurs notes en même temps (accord), on garde la plus aiguë
-                                if (!notesByTimestamp.has(timestamp) || midiVal > notesByTimestamp.get(timestamp).midiVal) {
-                                    notesByTimestamp.set(timestamp, {
-                                        step: step,
-                                        octave: Number(octave),
-                                        midiVal: midiVal,
-                                        timestamp: timestamp,
-                                        fullNote: `${step}${octave}`,
-                                        status: 'waiting',
-                                    });
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-      }
-
-      // Tri final et mise en état
-      const sortedNotes = Array.from(notesByTimestamp.values())
-        .sort((a, b) => a.timestamp - b.timestamp)
-        .map((n, index) => ({ ...n, id: index }));
-
-      console.log(`✅ Notes extraites : ${sortedNotes.length}`);
-      
-      if (sortedNotes.length > 0) {
-        setVirtualNotes(sortedNotes);
-        setStats(s => ({ ...s, totalNotes: sortedNotes.length }));
-        setGameStatus("ready");
-        setTimeout(() => scrollToNote(0), 100);
-      } else {
-        alert("Erreur : Aucune note trouvée dans cette partition.");
-      }
-    }).catch(e => console.error("OSMD Error:", e));
-  }, [xmlContent, scrollToNote]);
-
-  // --- GESTION DES ÉVÉNEMENTS CLAVIER ---
   useEffect(() => {
     const handleKeyDown = (e) => {
-      const key = e.key.toUpperCase();
-      if (KEY_NOTE_MAP[key]) {
-        setActiveKey(key);
-        handleNoteCheck(key);
-      }
+      const k = e.key.toUpperCase();
+      if (KEY_NOTE_MAP[k]) { setActiveKey(k); handleNoteCheck(k); }
+      if (e.code === 'Space') { e.preventDefault(); setIsPlaying(p => !p); }
     };
     const handleKeyUp = () => setActiveKey(null);
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
+    return () => { window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp); };
   }, [handleNoteCheck]);
 
-  /**
-   * Calcule la position verticale (Y) d'une note sur le SVG.
-   * Plus la note est aiguë, plus Y est petit (vers le haut).
-   */
-  const getNoteTopPosition = (note) => {
-    const baseOctave = 4;
-    const octaveDiff = (note.octave || 4) - baseOctave; 
-    const stepVal = PITCH_ORDER[note.step] || 0;
-    const baseStepVal = PITCH_ORDER['B']; 
-    const totalSteps = (octaveDiff * 7) + (stepVal - baseStepVal);
-    const middleLineY = STAFF_Y_START + (2 * LINE_GAP);
-    const top = middleLineY - (totalSteps * (LINE_GAP / 2)); 
-    return top;
+  const getNoteTop = (n) => {
+    const steps = ((n.octave - 4) * 7) + (PITCH_ORDER[n.step] - PITCH_ORDER['B']);
+    return (STAFF_Y_START + 2 * LINE_GAP) - (steps * (LINE_GAP / 2));
   };
 
-  const precision = (stats.correct + stats.errors) > 0 
-    ? Math.round((stats.correct / (stats.correct + stats.errors)) * 100) : 0;
-
-  // Calcul de la largeur totale du SVG : Notes + Marge de fin d'écran
-  const svgTotalWidth = (virtualNotes.length * NOTE_SPACING) + screenWidth;
+  const cursorX = screenWidth * CURSOR_LEFT_PERCENT;
 
   return (
-    <div className="h-screen bg-[#0f172a] flex flex-col font-sans text-white overflow-hidden">
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap');
-        .font-title { font-family: 'Outfit', sans-serif; }
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-      `}</style>
-
-      {/* HEADER */}
-      <header className="h-14 flex-none bg-slate-900/90 border-b border-white/10 flex items-center justify-between px-4 z-50">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/library')} className="p-2 hover:bg-white/10 rounded-full"><ArrowLeft size={20} /></button>
-          <h1 className="font-title font-bold text-lg hidden sm:block">Mode Jeu</h1>
+    <div className="min-h-screen bg-[#0f172a] flex flex-col font-sans text-slate-200 overflow-y-auto overflow-x-hidden">
+      <header className="h-14 flex-none bg-slate-900/80 border-b border-white/5 flex items-center justify-between px-6 z-50 sticky top-0">
+        <div className="flex items-center gap-6">
+          <button onClick={() => navigate('/library')}><ArrowLeft size={22} /></button>
+          <span className="text-sm font-medium">{Math.round(settings.bpm * aiState.reading_fluency)} BPM</span>
         </div>
-        <button onClick={() => setShowSettings(true)} className="p-2 hover:bg-white/10 rounded-full"><Settings size={20} /></button>
+        <div className="flex items-center gap-3">
+          <button onClick={() => setShowDebug(true)}><Bug size={18} /></button>
+          <button onClick={() => setShowSettings(true)}><Settings size={18} /></button>
+        </div>
       </header>
 
-      {/* Parser Invisible */}
       <div ref={hiddenContainer} style={{ position: 'absolute', left: '-9999px' }} />
 
-      <main className="flex-1 flex flex-col relative overflow-hidden">
-        
-        {/* STATS */}
-        <div className="flex-none pt-4 pb-2 px-4 flex justify-center z-30">
-            <div className="scale-90 origin-top w-full max-w-5xl">
-              <GameStats precision={precision} correct={stats.correct} errors={stats.errors} progress={stats.progress} totalNotes={stats.totalNotes} />
+      <main className="flex-1 flex flex-col items-center py-6 px-4 space-y-8">
+        <GameStats {...stats} />
+
+        {/* Fenêtre Partition FIXE */}
+        <div className="w-full max-w-6xl bg-slate-900/40 rounded-[2rem] border border-white/10 relative h-[380px] shadow-2xl overflow-hidden backdrop-blur-sm">
+            <div className="absolute z-30 pointer-events-none" style={{ left: cursorX, top: 0, bottom: 0 }}>
+                <div className="h-full w-[2px] bg-indigo-500/50" />
+            </div>
+
+            <div ref={scrollContainer} className="w-full h-full overflow-hidden relative flex items-center no-scrollbar">
+                <svg height="380" width={virtualNotes.length * NOTE_SPACING + screenWidth} className="flex-none">
+                    {[0,1,2,3,4].map(l => (
+                        <line key={l} x1="0" y1={STAFF_Y_START+l*LINE_GAP} x2="100%" y2={STAFF_Y_START+l*LINE_GAP} stroke="rgba(255,255,255,0.1)" strokeWidth="1.5" />
+                    ))}
+
+                    {virtualNotes.map((note, index) => {
+                        const x = cursorX + (index * NOTE_SPACING); 
+                        const y = getNoteTop(note);
+                        const isActive = index === currentIndex;
+                        const color = note.status === 'correct' ? '#10b981' : note.status === 'wrong' ? '#ef4444' : isActive ? '#818cf8' : '#64748b';
+
+                        const isHollow = note.duration >= 2.0; 
+                        const isEighth = note.duration === 0.5;
+                        const isDotted = note.duration % 1.5 === 0 || note.duration === 0.75;
+                        const stemDir = (note.octave > 4) || (note.octave === 4 && PITCH_ORDER[note.step] >= 6) ? 1 : -1;
+                        const stemX = x + (stemDir === -1 ? 7 : -7);
+                        const stemEndY = y + (stemDir * 35);
+
+                        const nextNote = virtualNotes[index + 1];
+                        const drawBeam = isEighth && nextNote && nextNote.duration === 0.5;
+
+                        return (
+                            <g key={note.id}>
+                                {(note.accidental === '#' || note.accidental === 'b' || note.accidental === 'n') && (
+                                    <text x={x - 20} y={y + 6} fill={color} fontSize="22" className="select-none font-bold">
+                                        {note.accidental === '#' ? '♯' : note.accidental === 'b' ? '♭' : '♮'}
+                                    </text>
+                                )}
+                                {note.duration < 4.0 && (
+                                    <line x1={stemX} y1={y} x2={stemX} y2={stemEndY} stroke={color} strokeWidth="2" />
+                                )}
+                                {drawBeam && (
+                                    <line x1={stemX} y1={stemEndY} x2={stemX + NOTE_SPACING} y2={getNoteTop(nextNote) + ((nextNote.octave > 4 || (nextNote.octave === 4 && PITCH_ORDER[nextNote.step] >= 6)) ? 35 : -35)} stroke={color} strokeWidth="6" />
+                                )}
+                                {isEighth && !drawBeam && !((virtualNotes[index-1] && virtualNotes[index-1].duration === 0.5)) && (
+                                    <path d={stemDir === -1 ? `M ${stemX} ${stemEndY} Q ${stemX+8} ${stemEndY+10} ${stemX+4} ${stemEndY+25}` : `M ${stemX} ${stemEndY} Q ${stemX+8} ${stemEndY-10} ${stemX+4} ${stemEndY-25}`} stroke={color} strokeWidth="2" fill="none" />
+                                )}
+                                <ellipse cx={x} cy={y} rx="9" ry="7" fill={isHollow ? "#1e293b" : color} stroke={color} strokeWidth="2" transform={`rotate(-15,${x},${y})`} />
+                                {isDotted && <circle cx={x + 14} cy={y} r="2.5" fill={color} />}
+                                {settings.showNoteNames && <text x={x} y={y + 45} textAnchor="middle" fill={color} fontSize="11" className="font-bold opacity-60 uppercase">{note.name_fr || NOTE_NAMES_FR[note.step]}</text>}
+                            </g>
+                        );
+                    })}
+                </svg>
             </div>
         </div>
 
-        {/* --- ZONE DE JEU (SCROLLER) --- */}
-        <div className="flex-1 flex items-center justify-center px-4 mb-4">
-             <div className="w-full max-w-5xl bg-slate-800/80 rounded-2xl border border-white/5 relative overflow-hidden h-[350px] flex items-center shadow-2xl">
-                
-                {/* CURSEUR DE LECTURE (Fixe au centre de l'écran) */}
-                <div className="absolute left-1/2 top-0 bottom-0 z-20 pointer-events-none flex flex-col items-center justify-center">
-                    <div className="h-full w-[2px] bg-blue-500 border-r border-dashed border-blue-300 shadow-[0_0_15px_rgba(59,130,246,0.8)]"></div>
-                </div>
-
-                {/* CONTENEUR DÉFILANT (SVG) */}
-                <div ref={scrollContainer} className="w-full h-full overflow-x-auto hide-scrollbar relative flex items-center">
-                    
-                    {/* SVG GÉANT */}
-                    <svg height="350" width={svgTotalWidth} style={{ minWidth: svgTotalWidth }} className="flex-none">
-                        {/* 1. Lignes de la portée */}
-                        {[0, 1, 2, 3, 4].map((line) => (
-                            <line 
-                                key={line} 
-                                x1="0" y1={STAFF_Y_START + line * LINE_GAP} 
-                                x2="100%" y2={STAFF_Y_START + line * LINE_GAP} 
-                                stroke="#64748b" strokeWidth="2" 
-                            />
-                        ))}
-
-                        {/* 2. Les Notes */}
-                        {virtualNotes.map((note, index) => {
-                            // --- CALCUL DE POSITION X ---
-                            // startOffset = Moitié de l'écran. 
-                            // Cela permet à la 1ère note (index 0) de commencer sous le curseur central.
-                            const startOffset = screenWidth / 2;
-                            const x = startOffset + (index * NOTE_SPACING);
-
-                            const y = getNoteTopPosition(note);
-                            const isActive = index === currentIndex;
-                            const isPast = index < currentIndex;
-
-                            // Gestion des couleurs (État passé / présent / futur)
-                            let noteColor = "#94a3b8"; 
-                            let noteFill = "transparent";
-                            
-                            if (isActive) noteColor = "#3b82f6"; // Bleu (Actif)
-                            else if (isPast) {
-                                if (note.status === 'correct') { noteColor = "#10b981"; noteFill = "#10b981"; } // Vert (Réussi)
-                                else if (note.status === 'wrong') { noteColor = "#ef4444"; noteFill = "#ef4444"; } // Rouge (Raté)
-                            }
-
-                            const stemDirection = note.octave >= 5 ? 1 : -1;
-                            const stemY2 = y + (stemDirection * 35);
-
-                            return (
-                                <g key={note.id} className="transition-all duration-300">
-                                    {/* Petit trait pour le Do central (qui est hors portée) */}
-                                    {note.step === 'C' && note.octave === 4 && (
-                                        <line x1={x - 12} y1={y} x2={x + 12} y2={y} stroke="#64748b" strokeWidth="2" />
-                                    )}
-                                    {/* Queue de la note */}
-                                    <line x1={x + (stemDirection === 1 ? -7 : 7)} y1={y} x2={x + (stemDirection === 1 ? -7 : 7)} y2={stemY2} stroke={noteColor} strokeWidth="2" />
-                                    {/* Tête de la note */}
-                                    <ellipse cx={x} cy={y} rx="8" ry="6" fill={noteFill} stroke={noteColor} strokeWidth="2" transform={`rotate(-15, ${x}, ${y})`} className={isActive ? "scale-125" : ""} />
-                                    
-                                    {/* Nom de la note (Optionnel) */}
-                                    {settings.showNoteNames && (
-                                        <text x={x} y={y + (stemDirection === 1 ? -15 : 25)} textAnchor="middle" fill={noteColor} fontSize="12" fontWeight="bold" fontFamily="Outfit">
-                                            {NOTE_NAMES_FR[note.step]}
-                                        </text>
-                                    )}
-                                    {/* Animation "Pulse" sur la note active */}
-                                    {isActive && (
-                                        <rect x={x - 15} y={y - 15} width="30" height="30" rx="4" stroke="#3b82f6" strokeWidth="2" fill="none">
-                                            <animate attributeName="stroke-opacity" values="1;0" dur="1.5s" repeatCount="indefinite" />
-                                        </rect>
-                                    )}
-                                </g>
-                            );
-                        })}
-                    </svg>
-                </div>
-             </div>
-        </div>
-
-        {/* PIANO VIRTUEL  */}
-        <div className="flex-none bg-[#0f172a] pt-2 pb-4 flex flex-col items-center z-40 border-t border-white/10">
-          <div className="flex gap-4 mb-2">
-            <button onClick={() => window.location.reload()} className="px-3 py-1 bg-slate-800 hover:bg-slate-700 rounded-full text-xs font-medium flex items-center gap-1">
-              <RotateCcw size={12} /> Reset
-            </button>
-          </div>
-          <div className="transform scale-90 origin-top">
-             <VirtualKeyboard activeKey={activeKey} />
-          </div>
+        {/* Section Clavier */}
+        <div className="w-full flex flex-col items-center space-y-6 pb-12">
+          <button onClick={() => setIsPlaying(!isPlaying)} className="px-14 py-4 bg-white text-slate-900 rounded-2xl font-bold active:scale-95 transition-transform shadow-xl">
+            {isPlaying ? <Pause size={24} /> : <Play size={24} />}
+          </button>
+          <VirtualKeyboard activeKey={activeKey} />
         </div>
       </main>
-      
-      {/* MODALE REGLAGES */}
-      <GameSettingsDialog open={showSettings} onClose={() => setShowSettings(false)} settings={settings} onUpdate={(key, val) => setSettings(prev => ({...prev, [key]: val}))} />
+
+      <DebugPanel isOpen={showDebug} onClose={() => setShowDebug(false)} aiState={aiState} />
+      <GameSettingsDialog open={showSettings} onClose={() => setShowSettings(false)} settings={settings} onUpdate={(k, v) => setSettings(s => ({...s, [k]: v}))} />
     </div>
   );
 }

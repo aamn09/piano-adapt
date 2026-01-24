@@ -1,20 +1,19 @@
 /**
  * @file backendClient.js
  * @description Couche de service API.
- * Ce fichier centralise toutes les communications asynchrones (Fetch) vers le serveur FastAPI.
- * Il gère l'injection du Token JWT (Sécurité) et le formatage des données (JSON/FormData).
+ * Gère la communication avec le Backend Python (FastAPI).
  */
 
-const API_URL = "http://127.0.0.1:8000/api";
+const hostname = window.location.hostname;
+const PORT = 8000; 
+const API_URL = `http://${hostname}:${PORT}/api`;
+
+console.log(`Backend ciblé : ${API_URL}`);
 
 // ==========================================
-// 1. AUTHENTIFICATION
+// authentification
 // ==========================================
 
-/**
- * Inscrit un nouvel utilisateur.
- * @param {Object} userData - { email, password, firstName, lastName }
- */
 export const registerUser = async (userData) => {
   const response = await fetch(`${API_URL}/auth/register`, {
     method: 'POST',
@@ -24,11 +23,6 @@ export const registerUser = async (userData) => {
   return response.json();
 };
 
-/**
- * Connecte un utilisateur existant.
- * @param {Object} creds - { email, password }
- * @returns {Promise<Object>} Contient le token JWT et les infos user.
- */
 export const loginUser = async (creds) => {
   const response = await fetch(`${API_URL}/auth/login`, {
     method: 'POST',
@@ -38,14 +32,10 @@ export const loginUser = async (creds) => {
   return response.json();
 };
 
-
 // ==========================================
-// 2. GESTION DES PROFILS
+// profils
 // ==========================================
 
-/**
- * Récupère la liste des profils du compte connecté.
- */
 export const getProfiles = async () => {
   const token = localStorage.getItem('authToken');
   const response = await fetch(`${API_URL}/profiles`, {
@@ -54,12 +44,6 @@ export const getProfiles = async () => {
   return response.json();
 };
 
-/**
- * Crée un nouveau profil musicien.
- * @param {string} name - Nom du profil (ex: "Mozart")
- * @param {string} icon - Emoji (ex: "🎹")
- * @param {string} color - Classe CSS Tailwind (ex: "from-blue-500...")
- */
 export const createProfile = async (name, icon, color) => {
   const token = localStorage.getItem('authToken');
   const response = await fetch(`${API_URL}/profiles`, {
@@ -68,20 +52,15 @@ export const createProfile = async (name, icon, color) => {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}` 
     },
-    // On structure l'objet comme attendu par le Pydantic du backend
     body: JSON.stringify({ name, icon, color }),
   });
   return response.json();
 };
 
-
 // ==========================================
-// 3. GESTION DES PARTITIONS (SCORES)
+// partitions
 // ==========================================
 
-/**
- * Récupère les partitions associées à un profil spécifique.
- */
 export const getProfileScores = async (profileId) => {
   const token = localStorage.getItem('authToken');
   const response = await fetch(`${API_URL}/profiles/${profileId}/scores`, {
@@ -90,68 +69,78 @@ export const getProfileScores = async (profileId) => {
   return response.json();
 };
 
-/**
- * Upload un PDF pour conversion.
- * Utilise FormData pour gérer l'envoi de fichier binaire.
- * @param {File} file - Le fichier PDF
- * @param {string} title - Le titre donné par l'utilisateur
- * @param {number} profileId - L'ID du profil à qui appartient la partition
- */
 export const uploadScorePdf = async (file, title, profileId) => {
   const token = localStorage.getItem('authToken');
-  
   const formData = new FormData();
   formData.append('file', file);
   formData.append('title', title); 
   
-  // On passe profileId en Query Param (?profileId=...)
   const response = await fetch(`${API_URL}/scores/upload-pdf?profileId=${profileId}`, {
     method: 'POST',
-    headers: { 
-      'Authorization': `Bearer ${token}` 
-    },
+    headers: { 'Authorization': `Bearer ${token}` },
     body: formData,
   });
   return response.json();
 };
 
-/**
- * Supprime une partition (Base de données + Fichiers).
- */
 export const deleteScore = async (scoreId) => {
   const token = localStorage.getItem('authToken');
   const response = await fetch(`${API_URL}/scores/${scoreId}`, {
     method: 'DELETE',
-    headers: { 
-      'Authorization': `Bearer ${token}` 
-    }
+    headers: { 'Authorization': `Bearer ${token}` }
   });
   return response.json();
 };
 
-
 // ==========================================
-// 4. TÉLÉCHARGEMENT & JEU
+// moteur de jeu
 // ==========================================
 
 /**
- * Récupère le contenu XML brut d'une partition convertie.
- * Indispensable pour le moteur d'affichage (OSMD).
- * @returns {Promise<string>} Le contenu XML sous forme de texte.
+ * Récupère le XML brut (pour l'affichage visuel OSMD uniquement)
  */
 export const getScoreMxl = async (scoreId) => {
   const token = localStorage.getItem('authToken');
-  
   const response = await fetch(`${API_URL}/scores/${scoreId}/mxl`, {
-    headers: {
-      'Authorization': `Bearer ${token}`
-    }
+    headers: { 'Authorization': `Bearer ${token}` }
   });
-
-  if (!response.ok) {
-    throw new Error("Erreur lors du téléchargement du fichier XML");
-  }
-
-  // On retourne .text() car le backend a déjà extrait le XML du ZIP
+  if (!response.ok) throw new Error("Erreur XML");
   return response.text();
+};
+
+/**
+ * récupère les notes du format xml et les transforme en JSON exploitable par le jeu
+ */
+export const getScoreJson = async (scoreId) => {
+  const token = localStorage.getItem('authToken');
+  const response = await fetch(`${API_URL}/scores/${scoreId}/json`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  if (!response.ok) throw new Error("Erreur JSON Notes");
+  return response.json();
+};
+
+// ==========================================
+// sauvegarde et ia
+// ==========================================
+
+// enregistre une session de jeu
+export const saveGameSession = async (scoreId, duration, accuracy, aiStats) => {
+  const token = localStorage.getItem('authToken');
+  const aiLogsString = JSON.stringify(aiStats);
+
+  const response = await fetch(`${API_URL}/sessions`, {
+    method: 'POST',
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}` 
+    },
+    body: JSON.stringify({
+      score_id: scoreId ? parseInt(scoreId) : null,
+      duration_seconds: duration,
+      accuracy: accuracy,
+      ai_logs: aiLogsString
+    }),
+  });
+  return response.json();
 };

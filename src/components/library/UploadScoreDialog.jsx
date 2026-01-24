@@ -12,9 +12,9 @@ import { Input } from "../ui/Input";
 import { uploadScorePdf } from '../../api/backendClient';
 
 /**
- * @param {boolean} open - Visibilité de la modale.
- * @param {Function} onClose - Fonction de fermeture.
- * @param {number} profileId - L'ID du profil musicien actuel (pour savoir à qui lier la partition).
+ * @param {boolean} open 
+ * @param {Function} onClose 
+ * @param {number} profileId 
  */
 export default function UploadScoreDialog({ open, onClose, profileId }) {
   const [file, setFile] = useState(null);
@@ -37,15 +37,11 @@ export default function UploadScoreDialog({ open, onClose, profileId }) {
     }
   });
 
-  /**
-   * Gestion du Drag & Drop ou de la sélection classique.
-   * Pré-remplitle champ "Titre" pour gagner du temps.
-   */
+  
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
       setFile(selectedFile);
-      // UX : On retire l'extension .pdf 
       setTitle(selectedFile.name.replace('.pdf', ''));
     }
   };
@@ -67,13 +63,13 @@ export default function UploadScoreDialog({ open, onClose, profileId }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Overlay Backdrop */}
+      
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={handleClose} />
 
-      {/* Contenu Modale */}
+      
       <div className="relative w-full max-w-lg bg-[#1e293b] border border-white/10 rounded-3xl shadow-2xl p-8 overflow-hidden animate-in fade-in zoom-in duration-200">
         
-        {/* Header */}
+        
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-white font-title">Ajouter une partition</h2>
           <button onClick={handleClose} className="text-slate-400 hover:text-white transition">
@@ -81,7 +77,7 @@ export default function UploadScoreDialog({ open, onClose, profileId }) {
           </button>
         </div>
 
-        {/* État de Chargement (Conversion en cours) */}
+        
         {mutation.isPending ? (
           <div className="flex flex-col items-center justify-center py-10 space-y-4">
             <Loader2 className="animate-spin text-blue-500" size={48} />
@@ -91,10 +87,10 @@ export default function UploadScoreDialog({ open, onClose, profileId }) {
             </div>
           </div>
         ) : (
-          /* Formulaire d'upload */
+          
           <form onSubmit={handleSubmit} className="space-y-6">
             
-            {/* Zone de Drop Visuelle */}
+            
             <div className="relative border-2 border-dashed border-slate-600 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:bg-white/5 transition-colors group cursor-pointer">
               <input 
                 type="file" 
@@ -116,7 +112,7 @@ export default function UploadScoreDialog({ open, onClose, profileId }) {
               )}
             </div>
 
-            {/* Champ Titre (Apparition conditionnelle) */}
+            
             {file && (
               <div className="space-y-2 animate-in slide-in-from-top-2">
                 <label className="text-sm font-medium text-slate-300 ml-1 flex items-center gap-2">

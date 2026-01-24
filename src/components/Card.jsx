@@ -18,15 +18,8 @@ export default function Card({ children, className = '' }) {
       ${className}
     `}>
       
-      {/* --- ARRIÈRE-PLAN --- */}
-      {/* Cercle lumineux Violet (Haut-Droit) */}
       <div className="absolute -top-20 -right-20 w-40 h-40 bg-indigo-600/20 blur-[60px] rounded-full pointer-events-none" />
-      
-      {/* Cercle lumineux Bleu (Bas-Gauche) */}
       <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-600/10 blur-[50px] rounded-full pointer-events-none" />
-      
-      {/* --- CONTENU --- */}
-      
       <div className="relative z-10">
         {children}
       </div>

@@ -1,13 +1,12 @@
 /**
  * @file VirtualKeyboard.jsx
  * @description Clavier visuel pour l'interface de jeu.
- * Ce composant est "passif" : il ne gère pas les événements clavier (c'est le rôle de GamePage),
- * il sert uniquement de retour visuel (feedback) pour montrer quelle touche est détectée.
+ * composant passif, il ne gère pas les événements clavier,
+ * il sert uniquement de retour visuel pour montrer quelle touche est détectée.
  */
 import React from 'react';
 
-// Configuration des touches (Mapping simplifié pour clavier ordinateur)
-// on se limite à la gamme majeure (touches blanches) pour simplifier 
+// on se limite à la gamme majeurpour simplifier 
 const KEYS = [
   { note: 'Do', key: 'A', type: 'white' },
   { note: 'Ré', key: 'S', type: 'white' },

@@ -16,11 +16,6 @@ import { Play, Music, Trash2 } from 'lucide-react';
  */
 export default function ScoreCard({ score, onClick, onDelete, index }) {
   
-  /**
-   * Gère le clic sur la poubelle.
-   * Empêche le clic de "remonter" (propagate) vers le parent,
-   * sinon le jeu se lancerait en même temps qu'on supprime.
-   */
   const handleDeleteClick = (e) => {
     e.stopPropagation(); 
     if (window.confirm(`Voulez-vous vraiment supprimer "${score.title}" ?`)) {
@@ -40,8 +35,7 @@ export default function ScoreCard({ score, onClick, onDelete, index }) {
       className="group relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden cursor-pointer hover:shadow-2xl hover:shadow-blue-900/20 transition-all w-full max-w-[220px]"
     >
       
-      {/* BOUTON SUPPRIMER (Absolu en haut à droite) */}
-      {/* N'apparaît qu'au survol du groupe (group-hover) */}
+      
       <button 
         onClick={handleDeleteClick}
         className="absolute top-2 right-2 z-20 p-2 bg-black/50 hover:bg-red-500/80 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all transform hover:scale-110"
@@ -50,7 +44,7 @@ export default function ScoreCard({ score, onClick, onDelete, index }) {
         <Trash2 size={16} />
       </button>
 
-      {/* ZONE VISUELLE (Vignette) */}
+      
       <div className="h-40 bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center relative overflow-hidden">
         {/* Effet de brillance au survol */}
         <div className="absolute inset-0 bg-blue-600/10 group-hover:bg-blue-600/20 transition-colors" />
@@ -66,7 +60,7 @@ export default function ScoreCard({ score, onClick, onDelete, index }) {
         </div>
       </div>
 
-      {/* INFORMATIONS (Titre) */}
+      
       <div className="p-4">
         <h3 className="text-white font-bold truncate font-title tracking-wide">
           {score.title}

@@ -50,7 +50,7 @@ export default function SignupPage() {
         }
       } 
       /**
-       * GESTION DES ERREURS BACKEND
+       * erreurs backend
        * Si FastAPI renvoie des erreurs de validation (422 Unprocessable Entity),
        * on les parse pour afficher un message clair.
        */
@@ -59,7 +59,7 @@ export default function SignupPage() {
         if (result.detail && Array.isArray(result.detail)) {
           // On transforme le tableau d'erreurs technique en texte lisible
           msg = result.detail.map(err => 
-            `👉 Champ '${err.loc[1]}' : ${err.msg}`
+            ` Champ '${err.loc[1]}' : ${err.msg}`
           ).join('\n');
         } else if (result.error) {
           msg = result.error;
@@ -80,7 +80,7 @@ export default function SignupPage() {
         `}
       </style>
 
-      {/* --- EFFETS VISUELS --- */}
+    
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/20 rounded-full blur-[120px]" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/20 rounded-full blur-[120px]" />
 
@@ -102,7 +102,7 @@ export default function SignupPage() {
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-3xl shadow-2xl">
           <form onSubmit={handleSubmit} className="space-y-5">
             
-            {/* GRILLE : PRÉNOM & NOM */}
+            {/* nom, prenom */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-300 ml-1">Prénom</label>
@@ -135,7 +135,7 @@ export default function SignupPage() {
               </div>
             </div>
 
-            {/* EMAIL */}
+            {/* mail */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-300 ml-1">Email</label>
               <div className="relative">
@@ -151,7 +151,7 @@ export default function SignupPage() {
               </div>
             </div>
 
-            {/* MOT DE PASSE */}
+            {/* mdp */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-300 ml-1">Mot de passe</label>
               <div className="relative">
@@ -175,7 +175,6 @@ export default function SignupPage() {
             </Button>
           </form>
 
-          {/* LIEN VERS CONNEXION */}
           <div className="mt-8 pt-6 border-t border-white/5 text-center">
             <p className="text-slate-400 text-sm">
               Déjà inscrit ?{' '}

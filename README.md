@@ -26,66 +26,58 @@ Le frontend interroge le backend toutes les 150ms. Ton script doit envoyer les �
   "is_distracted": boolean,
   "is_fixation": boolean
 }
+```
 Tu peux changer mais faudra adapter à toi de voir
 
 ---
 
-## Instructions par Système (OS)
+## Guide d'Installation
 
-### Pour Windows (Recommandé)
+### Pour Windows
 
 #### 1. Prérequis système
 - **Node.js** (v18 ou +)
 - **Python** (3.9 ou +)
-- **WSL2 (Ubuntu)** installé (Indispensable pour le pont Linux/Windows)
+- **WSL2 (Ubuntu)** installé
 - **Audiveris** installé sur Windows (Chemin par défaut : `C:\Program Files\Audiveris\Audiveris.exe`)
 
-#### 2. Terminal 1 : Backend (WSL Ubuntu)
+#### 2. Lancement du Backend (Terminal WSL)
 > **Note :** Ce terminal gère le serveur API et la conversion des partitions.
 ```bash
-cd piano-adapt/backend
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --reload
-
-#### 3. Terminal 2 : Frontend (PowerShell / CMD)
+    cd piano-adapt/backend
+    python3 -m venv venv
+    source venv/bin/activate
+    pip install -r requirements.txt
+    uvicorn main:app --reload
+```
+#### 3. Lancement du Frontend & Electron (Terminal Windows)
 > À la racine du projet :
 ```bash
 npm install # (si c'est pas installé)
 npm start
-
+```
 > Attendre que l'application s'ouvre dans le navigateur sur le port 3000.
 
-#### 4. Terminal 3 : Logiciel Electron (PowerShell / CMD)
+Si vous souhaitez la version desktop Electron :
 > À la racine du projet, une fois le frontend lancé
 ```bash
 npm run electron
-
+```
 ### Pour macOS
-
-#### 1. Prérequis système
-- **Node.js** (v18 ou +)
-
-- **Python** (3.9 ou +)
-
-- **Audiveris** installé pour macOS.
-
 
 #### 2. Adaptation du Code
 Comme Mac n'utilise pas WSL, il faut modifier ces deux points dans backend/main.py :
 
-1. Change AUDIVERIS_BIN pour pointer vers ton exécutable : /Applications/Audiveris.app/Contents/MacOS/Audiveris.
+1. Il faut modifier AUDIVERIS_BIN pour pointer vers : /Applications/Audiveris.app/Contents/MacOS/Audiveris.
 
-2. Dans la fonction wsl_path_to_windows, remplace le contenu par :
-``Python
+2. et remplacer la fonction de conversion de chemin WSL par une fonction qui retourne le chemin absolu :
+```Python
 def wsl_path_to_windows(linux_path: str) -> str:
     return os.path.abspath(linux_path)
+```
 
-
-#### 3. Lancement (3 Terminaux)
+#### 3. Lancement pareil que windows (Terminal macOS)
 Terminal 1 (Backend) : cd backend && source venv/bin/activate && uvicorn main:app --reload
-
 Terminal 2 (Frontend) : npm install (que la premiere fois) && npm start
-
 Terminal 3 (Logiciel) : npm run electron
+

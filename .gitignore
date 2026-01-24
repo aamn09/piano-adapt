@@ -5,6 +5,8 @@ build/
 .DS_Store
 
 # Environnement Python & Cache
+**/venv/
+venv/
 backend/venv/
 backend/__pycache__/
 *.pyc

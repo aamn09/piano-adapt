@@ -1,15 +1,32 @@
 # 🎹 Piano Adapt
+Piano adapt est une application permet de convertir des partitions PDF en format interactif pour apprendre le piano de manière ludique, soit via un navigateur, soit via le logiciel desktop (Electron).
 
-Bienvenue sur le projet **Piano Adapt**. Cette application permet de convertir des partitions PDF en format interactif pour apprendre le piano de manière ludique, soit via un navigateur, soit via le logiciel desktop (Electron).
-
----
+Logiciel à télécharger avant tout  : 
 https://github.com/Audiveris/audiveris/releases
-## Architecture du Projet
 
-- **Frontend :** React (Create React App) + Tailwind CSS
-- **Backend :** FastAPI (Python) + SQLite (Base de données)
-- **Conversion :** Audiveris (Logiciel OMR pour lire les PDF)
-- **Desktop :** Electron (Version logiciel PC)
+
+## Architecture du Système
+
+* **Frontend** : React + Tailwind CSS (Interface de jeu & Rendu SVG)
+* **Backend** : FastAPI + SQLite (Gestion des partitions & API Eye-tracking)
+* **OMR Engine** : Audiveris (Conversion PDF vers MusicXML)
+* **IA Logic** : Music21 (Analyse de la structure musicale)
+* **Desktop** : Electron (Encapsulation logicielle)
+---
+
+## Pour Tom : Intégration Eye-Tracking
+
+Le frontend interroge le backend toutes les 150ms. Ton script doit envoyer les états en `POST` à l'adresse suivante :
+`http://localhost:8000/api/update-eye-data`
+
+**Format attendu :**
+```json
+{
+  "looking_at_keyboard": boolean,
+  "is_distracted": boolean,
+  "is_fixation": boolean
+}
+Tu peux changer mais faudra adapter à toi de voir
 
 ---
 
